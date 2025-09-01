@@ -1,0 +1,222 @@
+
+body {
+  outline: 5px solid red !important;
+}
+
+:root {
+    --accent: #37aff5;
+    --bg:   #131417;
+    --light:#1f2024;
+    --dark: #f5f5f7;
+    --text: var(--dark);
+}
+
+*{
+    box-sizing:border-box;
+    margin:0;padding:0;
+    font-family:'Inter',sans-serif;
+    scroll-behavior:smooth
+}
+
+header{
+    background:var(--light);padding:1rem 2rem;display:flex;
+    justify-content:space-between;align-items:center;position:sticky;top:0;
+    box-shadow:0 2px 6px rgba(0,0,0,.05);z-index:100;
+}
+
+body{
+    background:var(--bg);
+    color:var(--text);
+    line-height:1.6;
+    scroll-behavior:smooth;
+}
+.logo{font-weight:600;
+    font-size:1.25rem;
+}
+
+nav a{
+    margin-left:1.5rem;
+    text-decoration:none;
+    color:var(--text);
+    font-weight:500;
+    transition:color .2s;
+}
+
+nav a:hover{
+    color:var(--accent);
+}
+
+.container{
+    max-width:960px;
+    margin:0 auto;
+    text-align:center;
+    padding:4rem 1rem;
+}
+
+.hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 4rem 1rem;
+    justify-content: center;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.hero p {
+    text-align: left;
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 500px;
+}
+.hero h1{
+    font-size:2.5rem;
+    margin-bottom:1rem;
+}
+
+.btn{
+    background:var(--accent);color:#fff;border:none;border-radius:4px;
+    padding:.75rem 1.5rem;text-decoration:none;display:inline-block;margin-top:1.5rem;
+}
+
+.social-links{
+    display:flex;           /* makes children flex items                */
+    justify-content:center; /* horizontally centre the whole row        */
+    gap:1.5rem;             /* optional: space between the three icons  */
+    margin-top:2rem;        /* optional: breathing room above the row   */
+}
+
+.img-row{
+        display:flex;          /* puts children on one row */
+        gap:1rem;              /* space between pictures   */
+        justify-content:center;/* optional – centre row in page */
+        flex-wrap:wrap;        /* let them wrap on small screens */
+}
+
+.img-row img{
+        width:48%;             /* two ‑up on wide screens  */
+        height:auto;           /* keep aspect ratio        */
+        max-width:750px;       /* never exceed original px */
+}
+
+.projects{
+    max-width:700px;                 /* narrower column for easy reading   */
+    margin:0 auto;                   /* centre it                          */
+    padding:4rem 1rem;
+    display:flex;
+    flex-direction:column;           /* ⬅ stack cards top‑to‑bottom        */
+    gap:2rem;
+}
+
+.project-card > a{
+    display:flex;                 /* row:  [img] [text]                 */
+    align-items:stretch;          /* same height as the card             */
+    text-decoration:none;         /* keep your colour‑inherit links      */
+    color:inherit;                /* (already present on some cards)     */
+}
+
+.project-card:hover{
+    transform:translateY(-4px);
+    box-shadow:0 6px 12px rgba(0,0,0,.08);
+}
+
+.project-card img{
+    flex:0 0 120px;              /* 120 px wide × 120 px tall           */
+    height:120px;                /* fallback for browsers w/o aspect‑ratio */
+    object-fit:cover;
+    aspect-ratio:1;
+}
+
+.card-body{
+    flex:1;padding:1rem;
+    display:flex;flex-direction:column;justify-content:center;
+    text-align:left;
+}
+.card-body h3{font-size:1.25rem;margin-bottom:.4rem}
+.card-body p{font-size:.95rem;line-height:1.45}
+
+.card-media{
+	flex:0 0 140px;        /* fixed column width */
+	display:flex;          /* center the image inside */
+	align-items:center;    /* vertical centering */
+	justify-content:center;/* horizontal centering */
+	background:rgba(255,255,255);
+	min-height:120px;      /* ensures a nice block even if img missing */
+}
+	/* logo itself */
+.card-media img{
+	max-width:100%;
+	max-height:120px;      /* don’t let the logo grow too tall */
+	object-fit:cover;
+	aspect-ratio:1;
+}
+
+	/* right side dates (from previous step) */
+.card-dates{
+	flex:0 0 auto;
+	padding:1rem;
+	display:flex;
+    flex-direction:column;
+    justify-content:center;
+	text-align:right;
+    font-size:.9rem;
+    color:#6c7a89;
+    white-space:nowrap;
+}
+
+.steps{
+    margin:1.25rem auto;
+    max-width:60ch;          /* keep line length readable */
+    padding-left:1.5rem;     /* room for the numbers      */
+    counter-reset: step;
+    text-align:left;
+}
+
+.steps li{
+    margin-bottom:.75rem;
+    line-height:1.4;
+    text-align:left;
+}
+
+.video-wrap {
+  max-width: 960px;  /* or whatever fits your layout */
+  margin: 1rem auto;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.video-wrap iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+.contact{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    padding:4rem 1rem;
+}
+.contact form{display:grid;gap:1rem;}
+.contact input,.contact textarea{
+    padding:.75rem;border:1px solid #dfe3e8;border-radius:4px;font-size:1rem;
+    background:var(--light);color:var(--text);
+}
+.contact button{
+    background:var(--accent);color:#fff;padding:.75rem;border:none;border-radius:4px;cursor:pointer;
+}
+
+footer{text-align:center;padding:2rem 1rem;font-size:.875rem;color:#6c7a89;}
+
+a.icon-link,
+a.icon-link:visited,
+a.icon-link:hover,
+a.icon-link:active {
+    color: #37aff5;
+    text-decoration: none;
+}
