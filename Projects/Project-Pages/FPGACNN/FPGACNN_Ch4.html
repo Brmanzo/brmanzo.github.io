@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Chapter 4: Functional Verification</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="../../../styles.css">
+</head>
+
+<body>
+	<header>
+		<div class="logo">Bradley R Manzo</div>
+		<nav>
+			<a href="../../../index.html">About Me</a>
+			<a href="../../projects.html">Projects</a>
+			<a href="../../../Work-Experience/work-experience.html">Work Experience</a>
+			<a href="../../../assets/Bradley_Manzo_resume.pdf">Resume</a>
+			<a href="#contact">Contact</a>
+		</nav>
+	</header>
+
+	<main>
+		<section id="about" class="hero">
+			<h1>Chapter 4: Functional Verification</h1>
+			<figure>
+				<img src="assets/fig_4_1.svg" alt="Testbench Layout placeholder">
+				<figcaption>Figure 4.1: Testbench Layout</figcaption>
+			</figure>
+			<p>
+				Throughout the development of each system verilog module, testbenches were simultaneously developed using the Cocotb Python library. The standardized layout as shown in Figure 4.1 involved driving both the DUT and the golden reference from the same input model, and collecting the outputs on the output model. This structure allows verification of not only the accuracy of the data, but the timing of the hardware as well. Then when designing the individual tests, all possible edge cases were simulated along with random inputs under different combinations of throughput to verify that the module is resilient to changes in backpressure and forward pressure. For the main RTL blocks, benchmarking the outputs directly against their PyTorch equivalents guaranteed accuracy while iterating and scaling towards a complete CNN.
+			</p>
+			<p>
+				Once all individual modules were unit tested, they were combined into the complete neural network. Several integration tests were executed using identical weights extracted from PyTorch, verifying strict agreement between the PyTorch CNN model and the hardware testbench. The test environment was then encapsulated within models of the deframer and classifier to confirm consistent behavior. Finally, the design was integrated with Alex Forencich's UART IP <a href="FPGACNN_Bibliography.html#forencich2025cocotbext" style="text-decoration: none; color: var(--accent);">[1]</a>, and the simulation was driven using Cocotb's UART protocol.
+			</p>
+
+			<div style="margin-top: 2rem;">
+				<a href="FPGACNN_Ch3.html" class="btn">Previous Chapter</a>
+				<a href="../FPGACNN.html" class="btn">Project Home</a>
+				<a href="FPGACNN_Ch5.html" class="btn">Next Chapter</a>
+			</div>
+		</section>
+	</main>
+
+	<footer>
+		© <span id="year"></span> Bradley Manzo | Built with HTML + CSS
+	</footer>
+	<script>
+		document.getElementById('year').textContent = new Date().getFullYear();
+	</script>
+</body>
+</html>

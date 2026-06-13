@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Chapter 7: Design Space Exploration</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="../../../styles.css">
+	
+	<!-- KaTeX for LaTeX equations -->
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+	<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+	<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body);"></script>
+</head>
+
+<body>
+	<header>
+		<div class="logo">Bradley R Manzo</div>
+		<nav>
+			<a href="../../../index.html">About Me</a>
+			<a href="../../projects.html">Projects</a>
+			<a href="../../../Work-Experience/work-experience.html">Work Experience</a>
+			<a href="../../../assets/Bradley_Manzo_resume.pdf">Resume</a>
+			<a href="#contact">Contact</a>
+		</nav>
+	</header>
+
+	<main>
+		<section id="about" class="hero">
+			<h1>Chapter 7: Design Space Exploration</h1>
+			<p>
+				While this co-design flow enables rapid and informed iteration via manual trial-and-error, the strict hardware constraints of the FPGA lend themselves to an exhaustive design space exploration. Not only does this save design time, but it also provides us the globally optimal network, balancing throughput, LC cost, and network accuracy.
+			</p>
+			<p>
+				In order to determine all possible networks that fit within the 5280 LC, 30 BRAM, and 8 DSP design constraints, a depth-first search is performed, iterating over all possible network lengths within budget. However, running make stat-design at each branch of the search would quickly scale out of control. For this reason, replacing this dynamic synthesis with a lightweight analytical model is ideal for on-the-fly LC estimations. 
+			</p>
+
+			<h2>Convolution Prediction</h2>
+			<p>
+				For every combination of parameters in the convolution, pooling, and classifier layers, a realistic range was swept via isolated Yosys runs, terminating when exceeding 5280 LC. To create a fast analytical model, the resulting resource utilizations (LUTs and FFs) from the synthesis logs were fitted via linear regression. Experimentation revealed that the bit-width precision costs (input and weight bit-widths) were mathematically independent from the spatial multiplication count. By extracting unique coefficients for each precision corner, the resulting regressions yielded an R2 > 99%. 
+			</p>
+
+			<div style="text-align: center; margin: 2rem 0;">
+				$$ LUT4(InBits,WeightBits) = A \cdot (OutCh \cdot InCh) + B \cdot OutCh + C \cdot InCh + D $$
+				<figcaption>Equation 7.1: Convolution LUT4 Prediction</figcaption>
+			</div>
+
+			<div style="text-align: center; margin: 2rem 0;">
+				$$ FF (InBits,WeightBits) = A \cdot (OutCh \cdot \log_2(InCh)) + B \cdot OutCh + C \cdot InCh + D $$
+				<figcaption>Equation 7.2: Convolution FF Prediction</figcaption>
+			</div>
+
+			<p>
+				The equations demonstrate that in the combinational unrolled layers, there are constant, predictable overheads for the spatial multiplication count, routing the output channels, routing the input channels, and a fixed baseline to implement control logic. Flip-flops can be predicted using a similar equation; however, because the input channels are summed using a pipelined binary adder tree, the number of staging registers grows logarithmically. The same functions hold for the sequential DSP layers, however since weight bits are fixed, DSPCount replaces it as the independent predicting variable. Because the LUT-based spatial multipliers are replaced with a single DSP, the coefficient plummets. The remaining LUTs are utilized mainly for routing overhead, while FFs increase due to the added data staging and control logic required to drive the DSP in 16x16 multiplication mode.
+			</p>
+
+			<h2>Classifier Prediction</h2>
+			<p>
+				Since the classifier layer contains its own 1x1 convolution, the predicting equations resemble those of the convolution module, modeling multiplication cost using input channels, class count, and weight bitwidth. However, the additional global maximum pooling and its underlying comparator tree must be modeled as well. While the spatial storage required for the global pooling scales linearly with the input channels, the comparator tree performs a binary reduction over the class outputs, meaning its hardware footprint scales logarithmically with the class count. 
+			</p>
+
+			<div style="text-align: center; margin: 2rem 0;">
+				$$ LUT4(TermBits,DSPCount) = A \cdot (InCh \cdot ClassCount \cdot WeightBits) + B \cdot InCh + C \cdot \log_2(ClassCount) + D $$
+				<figcaption>Equation 7.3: Classifier LUT4 Prediction</figcaption>
+			</div>
+
+			<div style="text-align: center; margin: 2rem 0;">
+				$$ FF(TermBits,DSPCount) = A \cdot InCh + B \cdot ClassCount + C \cdot DSPCount + D $$
+				<figcaption>Equation 7.4: Classifier FF Prediction</figcaption>
+			</div>
+
+			<h2>Pooling and Overhead Prediction</h2>
+			<p>
+				Because pooling layers lack any weights, and due to channels and precision remaining fixed between input and output, hardware prediction can be simplified to a standard look-up table for all realistic combinations of input bits, input channels, and pooling mode.
+			</p>
+			<p>
+				Overhead measurements included the UART IP, skid buffer, and class framer, while the deframer required sweeping over the four possible input sizes on the 8 bit UART bus.
+			</p>
+
+			<h2>Depth-First Search Network Generation</h2>
+			<p>
+				FPGAs are composed primarily of Logic Cells (LCs), which serve as the fundamental building blocks of the architecture. On the iCE40, each LC contains a 4-input Look-Up Table (LUT4), a dedicated Flip-Flop (FF), and optional carry logic. During synthesis, high-level hardware descriptions are mapped down into these 5,280 available cells. Crucially, the LUT and FF counts reported by the synthesizer are not mutually exclusive. The architecture is designed to pack efficiently: if a combinational logic path (LUT) directly feeds into a staging register (FF), the synthesizer will merge both operations into a single shared Logic Cell. Consequently, the total Logic Cell utilization is rarely the strict sum of the two resources, but is instead tightly bounded by the maximum of the two.
+			</p>
+			<p>
+				Using this predictive LC estimate, a depth-first search of the design space was performed. The algorithm initialized from a set of realistic architectural base cases, and iteratively extended the network depth. Once the predicted hardware footprint reached the physical LC capacity (minus a safety margin for top-level routing overhead), the search terminated that branch by appending the final classifier layer.
+			</p>
+
+<pre style="background: #1f2024; padding: 1.5rem; border-radius: 8px; text-align: left; overflow-x: auto; margin: 2rem 0; line-height: 1.5; width: 100%;">
+<code style="color: #f5f5f7;"><b>Algorithm 7.1:</b> Generate Base Case Networks
+--------------------------------------------------
+ 1:  S &leftarrow; &empty;   <i>// Initialize empty set of networks</i>
+ 2:  <b>for all</b> oc &isin; {2, 4, 6, 8, 9, 10, 12} <b>do</b>   <i>// Evenly divisible for DSPs</i>
+ 3:      <b>for all</b> ob &isin; {2, 3, 4, 5, 6} <b>do</b>
+ 4:          ib &leftarrow; 1, ic &leftarrow; 1   <i>// Binary, single channel image format</i>
+ 5:          wb &leftarrow; 4         <i>// Optimal precision vs. lc cost</i>
+ 6:          dsp &leftarrow; 0        <i>// Single-cycle Layer 0 for throughput</i>
+ 7:          
+ 8:          lc<sub>conv</sub> &leftarrow; predict_conv(ic, oc, ib, wb, dsp)
+ 9:          lc<sub>pool</sub> &leftarrow; predict_pool(ib=ob, ic=oc, mode=max)
+10:          lc<sub>total</sub> &leftarrow; lc<sub>conv</sub> + lc<sub>pool</sub>
+11:          
+12:          <b>if</b> lc<sub>total</sub> &le; LC_CAP <b>then</b>
+13:              cfg &leftarrow; build_cfg(oc, wb, ob, dsp)
+14:              S &leftarrow; S &cup; {(lc<sub>total</sub>, cfg)}   <i>// Store valid network in set</i>
+15:          <b>end if</b>
+16:      <b>end for</b>
+17:  <b>end for</b>
+18:  <b>return</b> sort(S)
+</code>
+</pre>
+
+<pre style="background: #1f2024; padding: 1.5rem; border-radius: 8px; text-align: left; overflow-x: auto; margin: 2rem 0; line-height: 1.5; font-size: 0.9em; width: 100%;">
+<code style="color: #f5f5f7;"><b>Algorithm 7.2:</b> Generate Networks via Depth-First Search
+---------------------------------------------------------
+ 1:  S &leftarrow; &empty;   <i>// Initialize empty set of complete networks</i>
+ 2:
+ 3:  <b>function</b> Extend(L, lc<sub>used</sub>, dsp_rem)
+ 4:      (oc<sub>prev</sub>, ob<sub>prev</sub>) &leftarrow; last layer of L
+ 5:      <b>for all</b> oc &isin; {c &isin; {2, 4, 6, 8, 9, 10, 12} | c > oc<sub>prev</sub>} <b>do</b>   <i>// Grow channels</i>
+ 6:          <b>for all</b> ob &isin; {w &isin; {2, 3, 4, 5, 6} | w &ge; ob<sub>prev</sub>} <b>do</b>        <i>// Grow bit-width</i>
+ 7:              wb &leftarrow; 8   <i>// ROM Width</i>
+ 8:              dsp &leftarrow; allocate_dsp(...)   <i>// Assign DSP if dsp_rem &ge; 1</i>
+ 9:              
+10:              lc<sub>conv</sub> &leftarrow; predict_conv(ic=oc<sub>prev</sub>, oc, ib=ob<sub>prev</sub>, wb, dsp)
+11:              lc<sub>pool</sub> &leftarrow; predict_pool(ib=ob, ic=oc, mode=max)
+12:              lc<sub>total</sub> &leftarrow; lc<sub>used</sub> + lc<sub>conv</sub> + lc<sub>pool</sub>
+13:              
+14:              <b>if</b> lc<sub>total</sub> &le; LC_CAP <b>then</b>
+15:                  L<sub>new</sub> &leftarrow; L &cup; {(oc, wb, ob, dsp)}
+16:                  S &leftarrow; S &cup; {(lc<sub>total</sub>, build_cfg(L<sub>new</sub>))}   <i>// Store candidate</i>
+17:                  
+18:                  <b>if</b> spatial dimensions &ge; 2 <b>then</b>   <i>// Minimum pool size</i>
+19:                      Extend(L<sub>new</sub>, lc<sub>total</sub>, dsp_rem - dsp)   <i>// Recurse deeper</i>
+20:                  <b>end if</b>
+21:              <b>end if</b>
+22:          <b>end for</b>
+23:      <b>end for</b>
+24:  <b>end function</b>
+25:
+26:  <i>// --- Main Execution ---</i>
+27:  <b>for all</b> base layer L<sub>0</sub> &isin; Generate Base Case Networks() <b>do</b>
+28:      Extend({L<sub>0</sub>}, lc<sub>L0</sub>, DSP_CAP)
+29:  <b>end for</b>
+30:
+31:  S &leftarrow; deduplicate_by_architecture(S)   <i>// Keep lowest LC DSPs</i>
+32:  S &leftarrow; {net &isin; S | |net.layers| &ge; 2 <b>and</b> lc &le; (LC_CAP &middot; 0.9)}
+33:  <b>return</b> sort(S)
+</code>
+</pre>
+
+			<p>
+				To aggressively prune the search space and filter out inherently suboptimal architectures, several structural heuristics were enforced during traversal. For each successive layer, the activation bit-width and channel count were constrained to be monotonically increasing (preventing information bottlenecks), and channel dimensions were restricted to highly divisible integers (2, 4, 6, 8, 9, 10, 12) to allow for better DSP allocation. Furthermore, the first layer was strictly enforced as a purely combinational block with 4-bit weights, whereas all succeeding layers were mapped to sequential architectures utilizing 8-bit weights and a single allocated DSP macro. Maintaining a combinational layer at the network's head supports high initial throughput where spatial resolution is highest, while limiting deeper sequential layers to a single DSP ensures maximum LUT efficiency, preserving the flexibility for designers to optimize throughput later by allocating additional DSPs if the budget allows. These topological constraints align directly with the empirical findings of the previous section, drastically reducing search time while consistently yielding high-quality, physically realizable networks. This search resulted in roughly a thousand valid networks that were each synthesized, reporting the actual LC cost.
+			</p>
+
+			<h2>Logic Cell Prediction</h2>
+			<p>
+				While this theoretical packing holds true for small, localized designs, it was discovered that larger networks, which theoretically fit within hardware caps, were often unable to be physically routed by Nextpnr. As routing congestion grows between disparate modules, the toolset is often forced to duplicate logic to meet timing constraints, breaking the ideal 1:1 packing assumption. Because an accurate routing-aware assessment of LC is critical for a proper design space exploration, end-to-end syntheses were conducted over a diverse dataset of complete neural networks to extract their actual, post-route LC costs. By evaluating the aggregated LUT and FF counts across the network, regression analysis was performed to determine which resource served as the dominant predictor of final hardware utilization.
+			</p>
+			<p>
+				The results were striking: once the heavy arithmetic logic was absorbed by the DSP macros, the predicted LUT count lost nearly all of its predictive power. Instead, the total Flip-Flop count, which serves as a direct proxy for pipeline depth and interconnect width, proved to be an exceptionally strong indicator of routing congestion. A single-variable regression on the Flip-Flop count yielded an R2 of 0.97 across 191 fully-routed networks. The maximum outlier observed being -0.09 is reflected in allocating 9% of the logic cap towards unused headroom. Ultimately, the final, routing-aware Logic Cell cost can be accurately modeled.
+			</p>
+
+			<div style="text-align: center; margin: 2rem 0;">
+				$$ ActualLC = 2.74 \cdot predictedFF + 35.08 $$
+				<figcaption>Equation 7.5: Logic Cell Prediction</figcaption>
+			</div>
+
+			<p>
+				With this robust, routing-aware heuristic, the depth-first search can confidently prune architectural configurations that would theoretically fit, but practically fail during the physical Nextpnr routing phase.
+			</p>
+
+			<h2>Network Accuracy Prediction</h2>
+			<p>
+				The final phase in the design space exploration was predicting pre-training accuracy from only the neural network architecture. The previously described improvements to the DFS resulted in 964 valid networks, which were iteratively trained over a standardized schedule. Many predicting variables were experimented with including total bandwidth, overall network growth, and throughput. However the three greatest predictors were the total LC utilization, ternary datapath percentage, and network depth yielding a pretraining predictive capability of 0.53 R2.
+			</p>
+
+			<div style="text-align: center; margin: 2rem 0;">
+				$$ \ln(acc) = \frac{LC}{2500} - \frac{Ternary\%}{117} + 1.422 \cdot depth - 0.226 \cdot depth^2 - 4.24 $$
+				<figcaption>Equation 7.6: Float Accuracy Prediction</figcaption>
+			</div>
+
+			<figure>
+				<img src="assets/fig_7_1.png" alt="Network Accuracy vs LC Cost placeholder">
+				<figcaption>Figure 7.1: Network Accuracy vs LC Cost</figcaption>
+			</figure>
+			<figure>
+				<img src="assets/fig_7_2.png" alt="Network Accuracy vs Network Depth placeholder">
+				<figcaption>Figure 7.2: Network Accuracy vs Network Depth</figcaption>
+			</figure>
+			<figure>
+				<img src="assets/fig_7_3.png" alt="Network Accuracy vs Ternary Datapath Percentage placeholder">
+				<figcaption>Figure 7.3: Network Accuracy vs Ternary Datapath Percentage</figcaption>
+			</figure>
+
+			<p>
+				In Figure 7.1, the positive linear relationship between trained floating point accuracy and LC is clear. Unsurprisingly, networks that fully utilize all available resources perform better, however accuracy peaking at a network depth of three in Figure 7.2, indicates that allocating the logic cells towards fewer wider layers outperforms longer thinner networks. The reason why is displayed in Figure 7.3, as longer networks tend to have critically imprecise activations, relying too heavily on ternary activations, which while useful in early layers, lead to vanishing gradients when utilized in deeper layers.
+			</p>
+			<p>
+				From a designer's perspective, throughput is just as critical for deploying a live model, as introducing downstream bottlenecks directly affects the entire system. While not the primary metric being measured by this statistical model, the structural diversity of generated networks in terms of depths, channel growth rates, and bit-widths yields a wide range of throughputs the designer may select from. Because throughput (frames per second) is largely independent of accuracy but entirely dependent on architecture, this variety enables designers to optimize for accuracy and from the top ranking candidates, select the network with the highest throughput.
+			</p>
+
+			<div style="margin-top: 2rem;">
+				<a href="FPGACNN_Ch6.html" class="btn">Previous Chapter</a>
+				<a href="../FPGACNN.html" class="btn">Project Home</a>
+				<a href="FPGACNN_Ch8.html" class="btn">Next Chapter</a>
+			</div>
+		</section>
+	</main>
+
+	<footer>
+		© <span id="year"></span> Bradley Manzo | Built with HTML + CSS
+	</footer>
+	<script>
+		document.getElementById('year').textContent = new Date().getFullYear();
+	</script>
+</body>
+</html>

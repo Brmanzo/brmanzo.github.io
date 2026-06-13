@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Chapter 5: Neural Network Design</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="../../../styles.css">
+	
+	<!-- KaTeX for LaTeX equations -->
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+	<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+	<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body);"></script>
+</head>
+
+<body>
+	<header>
+		<div class="logo">Bradley R Manzo</div>
+		<nav>
+			<a href="../../../index.html">About Me</a>
+			<a href="../../projects.html">Projects</a>
+			<a href="../../../Work-Experience/work-experience.html">Work Experience</a>
+			<a href="../../../assets/Bradley_Manzo_resume.pdf">Resume</a>
+			<a href="#contact">Contact</a>
+		</nav>
+	</header>
+
+	<main>
+		<section id="about" class="hero">
+			<h1>Chapter 5: Neural Network Design</h1>
+			<p>
+				Following preliminary hardware development and functional verification of the pipeline, a compatible PyTorch architecture was established and benchmarked against the MNIST database. Building upon prior testing that confirmed behavioral parity for PyTorch's conv2d and max_pool operations, the classifier was modeled using amax, linear, and argmax functions. The primary challenge in this integration involved a data precision disparity: the target edge device processes binarized inputs and integer weights, whereas PyTorch natively utilizes 32-bit floating-point representations. Consequently, a critical requirement for successful integration was quantizing these values to integers and embedding hardware-in-the-loop constraints directly into the training process to preserve model accuracy.
+			</p>
+
+			<h2>Weight Quantization</h2>
+			<p>
+				While weight quantization is a mandatory constraint for this edge architecture, its benefits extend equally to fully software-based models. Reducing parameter precision can drastically shrink memory footprint as well as improve bandwidth, as many smaller weights can be packed into one memory entry and fetched in fewer cycles. The goal was to achieve maximum compression of weights to a ternary representation as demonstrated in Scalable MatMul-free Language Modeling <a href="FPGACNN_Bibliography.html#zhu2024scalable" style="text-decoration: none; color: var(--accent);">[2]</a> not just because of the aforementioned advantages, but due to the simplicity of the hardware mapping. Ternary weights are similar to binary but with an added zero term so that weights can drop out and be pruned if sufficiently small. Because {-1,1} are only being multiplied by {-1,0,1}, the addition simplifies to a bidirectional counter. This required revision of the RTL, to not only encode binary {0,1} to {-1,1}, but also to constrain hardware to the ternary counter logic, rather than default to the typical 2-bit range of [-2:1].
+			</p>
+			<p>
+				Initial experimentation revealed aggressive quantization from floating point to its final quantized precision would permanently handicap the model. The solution: Unified Progressive Quantization (UPQ) as described in Unifying block-wise PTQ and distillation-based QAT <a href="FPGACNN_Bibliography.html#lee2025unifying" style="text-decoration: none; color: var(--accent);">[3]</a>. Each convolution layer is fitted with the quantization function where floating points are scaled to a lower range and then rounded to the nearest integer on forward pass.  
+			</p>
+
+			<div style="text-align: center; margin: 2rem 0;">
+				$$ Q(x; s, b) = \begin{cases} s \cdot \text{clip}\left(\text{round}\left(\frac{x}{s}\right), -1, 1\right) & \text{if } b = 2 \text{ (Ternary)} \\ s \cdot \text{clip}\left(\text{round}\left(\frac{x}{s}\right), -2^{b-1}, 2^{b-1} - 1\right) & \text{otherwise} \end{cases} $$
+				<figcaption>Equation 5.1: Weight Quantization</figcaption>
+			</div>
+
+			<p>
+				Because the derivative of the rounding function is zero almost everywhere, standard backpropagation would effectively halt learning. To bypass this, the architecture employs Straight-Through Estimators (STEs), which approximate the gradient of the quantization function as one. This allows the gradients to pass straight through to the underlying high-precision weights, accumulating subtle, sub-integer updates until they cross into the optimal quantized state.
+			</p>
+			
+			<figure>
+				<div style="overflow-x: auto; margin: 1.5rem auto; width: 100%;">
+					<table>
+						<thead>
+							<tr>
+								<th>Layer</th>
+								<th>FP</th>
+								<th>8b</th>
+								<th>7b</th>
+								<th>6b</th>
+								<th>5b</th>
+								<th>4b</th>
+								<th>3b</th>
+								<th>2b</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>1</td>
+								<td>20</td>
+								<td>5</td>
+								<td>5</td>
+								<td>5</td>
+								<td>5</td>
+								<td>5</td>
+								<td>10</td>
+								<td>20</td>
+							</tr>
+							<tr>
+								<td>2</td>
+								<td>30</td>
+								<td>5</td>
+								<td>5</td>
+								<td>5</td>
+								<td>5</td>
+								<td>5</td>
+								<td>10</td>
+								<td>20</td>
+							</tr>
+							<tr>
+								<td>3</td>
+								<td>40</td>
+								<td>5</td>
+								<td>5</td>
+								<td>5</td>
+								<td>5</td>
+								<td>5</td>
+								<td>10</td>
+								<td>20</td>
+							</tr>
+							<tr>
+								<td>4</td>
+								<td>50</td>
+								<td>5</td>
+								<td>5</td>
+								<td>5</td>
+								<td>5</td>
+								<td>30</td>
+								<td>30</td>
+								<td></td>
+							</tr>
+							<tr>
+								<td>Classifier</td>
+								<td>50</td>
+								<td>10</td>
+								<td></td>
+								<td></td>
+								<td></td>
+								<td></td>
+								<td></td>
+								<td></td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+				<figcaption style="margin-bottom: 2rem;">Table 5.1: Quantization Schedule</figcaption>
+			</figure>
+			
+			<figure>
+				<img src="assets/fig_5_1.png" alt="Training and Test Accuracy with Quantization Schedule placeholder">
+				<figcaption>Figure 5.1: Training and Test Accuracy with Quantization Schedule</figcaption>
+			</figure>
+			
+			<p>
+				Further testing resulted in the quantization schedule described in Table 5.1, where the precision is gradually stepped down over several epochs. Crucially, once a layer reaches its target minimum precision (e.g., 2-bit), the precision is locked, but the network continues to train for a final set of epochs (a fine-tuning plateau). Coupled with an initially aggressive but gradually reducing learning rate, this plateau allows the weights to actively update and settle into their lowest-precision state, giving downstream layers time to recover from the upstream quantization shock. For the classifier, no further quantization beyond 8-bit was pursued, as precision here is cheaper and most critical. When inspecting the weights at each layer, earlier ternary layers become incredibly sparse and seem to outsource learning to deeper layers. Therefore, great importance should be placed in the penultimate layer, as 3-bit was the minimum quantization the model could recover from as shown in Figure 5.1.
+			</p>
+			<p>
+				Because the ternary weights and ternary activations are incompatible with each other, this introduces a critical tradeoff: reduced multiply complexity with ternary weights, or reduced datapath complexity with ternary. Although anticlimactic, this decision is made trivial thanks to the lower LUT utilization in DSP convolution layers. When optimizing logic overhead, the primary design constraint, higher precision weights are supported with no additional logical complexity. However, in earlier, thinner layers where timing is more critical, utilizing ternary activations allows for a comfortable precision of 4-bits.
+			</p>
+			<p>
+				One final weight optimization to more efficiently map to hardware is BatchNorm folding. Batch normalization is critical between neural network layers during training; by ensuring all activations have a mean of zero, and a standard deviation of one which prevents gradients from vanishing or exploding.
+			</p>
+
+			<div style="text-align: center; margin: 2rem 0;">
+				$$ \begin{aligned} BN(x) &= \gamma \frac{x-\mu}{\sigma} + \beta \\ W_{folded} &= W_{original} \cdot \frac{\gamma}{\sigma} \\ b_{folded} &= \beta - \left(\mu \cdot \frac{\gamma}{\sigma}\right) \end{aligned} $$
+				<figcaption>Equation 5.2: Batch Normalization and Folding</figcaption>
+			</div>
+
+			<p>
+				This simplifies to a simple scale and bias that can be folded into the already existing parameters. By multiplying the scale into each weight, and adding the offset to each bias before exporting to hardware, the network is stabilized without any costly multiplications or divisions.
+			</p>
+
+			<h2>Activation Quantization</h2>
+			<p>
+				While weight quantization inherently benefits any AI deployment by compressing static memory, activation quantization serves as a strict information bottleneck. By deliberately restricting the precision of intermediate feature maps, the architecture forces the network to learn robust, low-bit representations, transferring just enough meaning to sustain accuracy. On hardware, this bottleneck is what physically enables deep inference, shrinking the required datapath width and minimizing the BRAM required for temporal buffering. 
+			</p>
+			<p>
+				After training many different architectures, none were able to surpass 50% accuracy with a full ternary datapath. While the bounded nature of ternary activations is highly beneficial for hardware, strictly limiting datapath width and making worst-case accumulator overflows highly unlikely, this flat gated function causes gradients to vanish before they can propagate back to the network's early layers. ReLU, on the other hand, is positively unbounded. By applying a constant derivative of one to positive inputs, it acts as a lossless highway, ensuring that even the earliest layers receive strong error signals to learn from.
+			</p>
+
+			<div style="text-align: center; margin: 2rem 0;">
+				$$ y = \text{PACT}(x, \alpha) = \begin{cases} 0 & x \le 0 \\ x & 0 < x \le \alpha \\ \alpha & x > \alpha \end{cases} $$
+				<figcaption>Equation 5.3: Parameterized Clipping Activation (Quantization)</figcaption>
+			</div>			<figure>
+				<img src="assets/fig_5_2.png" alt="Training MNIST with Quantized Activations and Weights placeholder">
+				<figcaption>Figure 5.2: Training MNIST with Quantized Activations and Weights</figcaption>
+			</figure>
+
+			<p>
+				It's clear that an output activation with a bit-width greater than 2-bits should function similarly to a clipped ReLU, however it's not immediately obvious which bits to select off of the sum, which in the worst case accumulate far beyond the target output width. If sufficiently smaller than the accumulation width, selecting off the LSB results in noise, while selecting off of the MSB results in zeros. Choi, J et al. bridges this gap in PACT: Parameterized Clipping Activation for Quantized Neural Networks <a href="FPGACNN_Bibliography.html#choi2018pact" style="text-decoration: none; color: var(--accent);">[4]</a> where a window with a lower bound of zero, and an upper bound. Everything below is zeroed, and everything above saturates to this bound. By forcing the network to learn a bound that is a power of two, the quantization scale factor can be mathematically mapped to a hardware right-shift. This allows the network to autonomously learn and select the most meaningful 'sweet spot' range of bits directly from the accumulator, resulting in the accuracy shown in Figure 5.2.
+			</p>
+			<p>
+				In hardware, this translates to a single static shift parameter per layer to apply the learned scale, naturally enforcing the clipping boundary via the physical limitations of the output bit-width. While learning a custom scale per channel may yield a slight increase in accuracy, because DSPs operate over a range of out channels, dynamically shifting the output would incur massive control logic overhead. Post training, the network then observes the learned weights and produces a data-dependent worst case accumulation bound. The hardware which sets the register bitwidth to the absolute worst case is trimmed to this new width to reduce FF and LUT overhead.
+			</p>
+
+			<div style="margin-top: 2rem;">
+				<a href="FPGACNN_Ch4.html" class="btn">Previous Chapter</a>
+				<a href="../FPGACNN.html" class="btn">Project Home</a>
+				<a href="FPGACNN_Ch6.html" class="btn">Next Chapter</a>
+			</div>
+		</section>
+	</main>
+
+	<footer>
+		© <span id="year"></span> Bradley Manzo | Built with HTML + CSS
+	</footer>
+	<script>
+		document.getElementById('year').textContent = new Date().getFullYear();
+	</script>
+</body>
+</html>

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Chapter 2: Embedded Interface Design</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="../../../styles.css">
+</head>
+
+<body>
+	<header>
+		<div class="logo">Bradley R Manzo</div>
+		<nav>
+			<a href="../../../index.html">About Me</a>
+			<a href="../../projects.html">Projects</a>
+			<a href="../../../Work-Experience/work-experience.html">Work Experience</a>
+			<a href="../../../assets/Bradley_Manzo_resume.pdf">Resume</a>
+			<a href="#contact">Contact</a>
+		</nav>
+	</header>
+
+	<main>
+		<section id="about" class="hero">
+			<h1>Chapter 2: Embedded Interface Design</h1>
+			<p>
+				The microcontroller serves two important purposes: preprocessing the Arducam image before forwarding to the FPGA, and publishing the FPGA result over Wi-Fi. Allowing the ESP32c3 to arbitrate I/O and compress the image on the front end alleviates the UART bottleneck and reduces overhead on the FPGA, ensuring that the strengths of both software and hardware are fully utilized.
+			</p>
+			<p>
+				Because the CNN expects binary inputs, the system leverages the YUV422 format, where every other byte directly provides a pixel's luminance. This not only reduces the memory footprint from RGB's three bytes per pixel to two, but also eliminates the costly floating point grayscale calculation. To adapt to environmental lighting changes, the system applies a dynamic threshold to binarize these values. By pressing both buttons, the threshold is set to the average lightness of the frame, however they can be pressed individually for manual adjustment.
+			</p>
+
+			<figure>
+				<img src="assets/fig_2_1.svg" alt="Capture Preprocessing Pipeline">
+				<figcaption>Figure 2.1: Capture Preprocessing Pipeline</figcaption>
+			</figure>
+
+			<p>
+				To reduce SRAM consumption, the image is read off of the Arducam SPI FIFO in chunks. By iteratively binarizing and packing eight pixels in each byte, the buffered image's SRAM footprint is not only minimized, but the hardware overhead is also reduced as shown in Figure 2.1. This compression is critical in mitigating the UART bottleneck, as the only baud rate compatible with the FPGA's 12 MHz clock frequency is 115200 baud (bits per second). The Arducam OV2640 camera <a href="FPGACNN_Bibliography.html#arducam2017" style="text-decoration: none; color: var(--accent);">[5]</a> captures 160x120 video at a maximum of 15 frames per second, meaning a new frame is generated every 67 milliseconds. Transmitting an unprocessed frame over UART would take 2.7 seconds reducing throughput by 40x. However, by downsampling to the 40x30 input the CNN expects and preprocessing, UART latency is reduced to 10.5 milliseconds, guaranteeing that the neural network has a continuous, real-time stream of valid data.
+			</p>
+			<p>
+				In order to ensure data alignment, the start of each frame is indicated by header bytes and any remaining bits are padded with zeros. The FPGA waits for these header bytes before beginning convolution and produces matching tail bytes after a valid classification, informing the ESP of its completion. System integrity is also accounted for, allowing the system to recover from interrupts or incomplete transmissions. In the absence of an FPGA response, the ESP will periodically reset the FPGA. Upon reset, the FPGA will broadcast a wakeup byte to the ESP initiating communication. This recovery mechanism formalizes the master-slave dynamic, ensuring a robust system.
+			</p>
+
+			<figure>
+				<img src="assets/fig_2_2.svg" alt="HTML Packet Structure">
+				<figcaption>Figure 2.2: HTML Packet Structure</figcaption>
+			</figure>
+
+			<p>
+				After the classification decision is received from the FPGA over UART, the ESP32 embeds it into a data packet alongside the binarized image, image dimensions, and the adaptive threshold as shown in Figure 2.2. The ESP32 acts as an HTTP web server, hosting an HTML interface and transmitting these packets over Wi-Fi to a connected client. The client's web browser unpacks the packet to visually reconstruct the binarized image for verification, while displaying the neural network's decision and the adaptive threshold used during preprocessing.
+			</p>
+
+			<div style="margin-top: 2rem;">
+				<a href="FPGACNN_Ch1.html" class="btn">Previous Chapter</a>
+				<a href="../FPGACNN.html" class="btn">Project Home</a>
+				<a href="FPGACNN_Ch3.html" class="btn">Next Chapter</a>
+			</div>
+		</section>
+	</main>
+
+	<footer>
+		© <span id="year"></span> Bradley Manzo | Built with HTML + CSS
+	</footer>
+	<script>
+		document.getElementById('year').textContent = new Date().getFullYear();
+	</script>
+</body>
+</html>

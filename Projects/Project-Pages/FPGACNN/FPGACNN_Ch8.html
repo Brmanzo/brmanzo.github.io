@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Chapter 8: System Deployment and Future Work</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="../../../styles.css">
+</head>
+
+<body>
+	<header>
+		<div class="logo">Bradley R Manzo</div>
+		<nav>
+			<a href="../../../index.html">About Me</a>
+			<a href="../../projects.html">Projects</a>
+			<a href="../../../Work-Experience/work-experience.html">Work Experience</a>
+			<a href="../../../assets/Bradley_Manzo_resume.pdf">Resume</a>
+			<a href="#contact">Contact</a>
+		</nav>
+	</header>
+
+	<main>
+		<section id="about" class="hero">
+			<h1>Chapter 8: System Deployment and Future Work</h1>
+			<figure>
+				<img src="assets/fig_8_1.png" alt="Deployed and Integrated System placeholder">
+				<figcaption>Figure 8.1: Deployed and Integrated System</figcaption>
+			</figure>
+			<figure>
+				<img src="assets/fig_8_2.png" alt="Functioning Camera-to-Prediction-to-Server Pipeline placeholder">
+				<figcaption>Figure 8.2: Functioning Camera-to-Prediction-to-Server Pipeline</figcaption>
+			</figure>
+
+			<p>
+				All work described thus far has been documented in the repository linked on the title page. Methods were recorded and automated for reproducibility in a commercial environment. Development resulted in robust firmware, scalable verified RTL, a cohesive Pytorch-Hardware landscape featuring a complete EDA pipeline, and an exhaustive design space exploration. Future work should focus on remote deployment via battery power, learning a wider zero region for ternary activations to improve quantized accuracy, and exploring if predictive functions scale across computer vision tasks and FPGA architectures.
+			</p>
+
+			<div style="margin-top: 2rem;">
+				<a href="FPGACNN_Ch7.html" class="btn">Previous Chapter</a>
+				<a href="../FPGACNN.html" class="btn">Project Home</a>
+				<a href="FPGACNN_Bibliography.html" class="btn">Bibliography</a>
+			</div>
+		</section>
+	</main>
+
+	<footer>
+		© <span id="year"></span> Bradley Manzo | Built with HTML + CSS
+	</footer>
+	<script>
+		document.getElementById('year').textContent = new Date().getFullYear();
+	</script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Chapter 1: Introduction</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="../../../styles.css">
+</head>
+
+<body>
+	<header>
+		<div class="logo">Bradley R Manzo</div>
+		<nav>
+			<a href="../../../index.html">About Me</a>
+			<a href="../../projects.html">Projects</a>
+			<a href="../../../Work-Experience/work-experience.html">Work Experience</a>
+			<a href="../../../assets/Bradley_Manzo_resume.pdf">Resume</a>
+			<a href="#contact">Contact</a>
+		</nav>
+	</header>
+
+	<main>
+		<section id="about" class="hero">
+			<h1>Chapter 1: Introduction</h1>
+			<p>
+				While Artificial General Intelligence (AGI) and Large Language Models (LLMs) currently dominate the AI landscape, their deployment remains largely restricted to datacenters. This is primarily because their generality demands massive parameter counts, requiring extensive memory and compute overhead to operate. Furthermore, as AI inputs scale from text to high-bandwidth modalities like live video, outsourcing inference by transmitting raw data to the cloud becomes unsustainable for local network infrastructure.
+			</p>
+			<p>
+				Conversely, application-specific models that are deployed at the edge operate with drastically fewer parameters, eliminating this network bottleneck. However their remote nature demands lower power, and therefore a highly optimized and efficient architecture. Embedded inference is highly compatible with the Internet of Things (IoT), enabling intelligent, localized data extraction by transmitting only the resulting inference, which heavily reduces network bandwidth. Accelerating inference on inherently low-compute edge devices, specifically the Lattice iCEBreaker V1.1a FPGA <a href="FPGACNN_Bibliography.html#latticeice40" style="text-decoration: none; color: var(--accent);">[7]</a> requires full utilization of all available resources: LCs (logic cells), DSP blocks (Digital Signal Processing), and BRAMs (Block RAMS). When paired with the ESP32c3 microcontroller <a href="FPGACNN_Bibliography.html#espressif2023esp32c3" style="text-decoration: none; color: var(--accent);">[6]</a> as shown in Figure 1.1, a complete, partitioned system that perfectly utilizes the distinct strengths of both software and hardware can be deployed.
+			</p>
+			
+			<figure>
+				<img src="assets/fig_1_1.svg" alt="Top-Level Architecture">
+				<figcaption>Figure 1.1: Top-Level Architecture</figcaption>
+			</figure>
+			
+			<div style="margin-top: 2rem;">
+				<a href="../FPGACNN.html" class="btn">Back to Project Home</a>
+				<a href="FPGACNN_Ch2.html" class="btn">Next Chapter</a>
+			</div>
+		</section>
+	</main>
+
+	<footer>
+		© <span id="year"></span> Bradley Manzo | Built with HTML + CSS
+	</footer>
+	<script>
+		document.getElementById('year').textContent = new Date().getFullYear();
+	</script>
+</body>
+</html>
