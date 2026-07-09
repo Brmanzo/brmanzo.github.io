@@ -9,16 +9,8 @@
 </head>
 
 <body>
-	<header>
-		<div class="logo">Bradley R Manzo</div>
-		<nav>
-			<a href="../../../index.html">About Me</a>
-			<a href="../../projects.html">Projects</a>
-			<a href="../../../Work-Experience/work-experience.html">Work Experience</a>
-			<a href="../../../assets/Bradley_Manzo_resume.pdf">Resume</a>
-			<a href="#contact">Contact</a>
-		</nav>
-	</header>
+	<!-- ======= HEADER ======= -->
+	<custom-header></custom-header>
 
 	<main>
 		<section id="about" class="hero">
@@ -42,9 +34,8 @@
 		</section>
 	</main>
 
-	<footer>
-		© <span id="year"></span> Bradley Manzo | Built with HTML + CSS
-	</footer>
+	<custom-footer></custom-footer>
+	<script src="../../../components.js"></script>
 	<script>
 		document.getElementById('year').textContent = new Date().getFullYear();
 	</script>

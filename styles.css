@@ -156,7 +156,7 @@ nav a:hover{
 	display:flex;          /* center the image inside */
 	align-items:center;    /* vertical centering */
 	justify-content:center;/* horizontal centering */
-	background:rgba(255,255,255);
+	background:#1f2024;
 	min-height:120px;      /* ensures a nice block even if img missing */
 }
 	/* logo itself */
